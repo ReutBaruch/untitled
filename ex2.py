@@ -3,7 +3,7 @@ import random
 import numpy as np
 import sys
 
-
+#functions to canculate eta - didn't use it
 def eta(r, y, y_hat):
     if r == y:
         return 1
@@ -11,32 +11,32 @@ def eta(r, y, y_hat):
         return -1
     return 0
 
-def PA_loss(x, y, y_hat, w):
-    return max(0, 1 - np.dot(w[y, :], x) + np.dot(w[y_hat, :], x))
-
+#functions to canculate eta - didn't use it
 def eta2(y, x, wights):
     calculate = np.dot(wights, np.dot(y, x))
-    #print(calculate)
 
     if np.all(calculate > 0):
-        #print("heyy")
         return 0
     else:
-       #print("nn")
         return -np.dot(y, x)
+
+
+def PA_loss(x, y, y_hat, w):
+    return max(0, 1 - np.dot(w[y, :], x) + np.dot(w[y_hat, :], x))
 
 
 def _init_weights():
     rows = 3
     columns = 8
+    #fill the matrix with 0
     weights = [[0 for column in range(columns)] for row in range(rows)]
     weights = np.asarray(weights)
     weights = weights.astype(np.float)
+
     return weights
 
 
-def algotithem(pathX, pathY, pathTest):
-
+def algorithm(pathX, pathY, pathTest):
     #open files
     train_x = open(pathX, "r")
     train_y = open(pathY, "r")
@@ -46,25 +46,28 @@ def algotithem(pathX, pathY, pathTest):
 
     train_y = list(train_y)
 
-    #init preceptron_wights to 0
+    #init wights to 0
     preceptron_wights = _init_weights()
     SVM_wights = _init_weights()
     PA_wights = _init_weights()
 
+    #set the eta value
     hiperEta = 2
 
+    #get the lines from files in a random order
     both_Train = list(zip(train_x, train_y))
-
     random.shuffle(both_Train)
-
     train_x, train_y = zip(*both_Train)
 
+    #start training
     for iteration in range(20):
+
         failCountPreceptron = 0
         failCountSVM = 0
         failCountPA = 0
         count = 0
 
+        #reducing the eta in every iteration
         hiperEta = hiperEta / 10
 
         for line_x, line_y in zip(train_x, train_y):
@@ -83,29 +86,35 @@ def algotithem(pathX, pathY, pathTest):
             #normalizing
             x = x / np.linalg.norm(x)
 
+            #canculating y_hat for every algorithm
             preceptron_y_hat = np.argmax(np.dot(preceptron_wights, x))
             SVM_y_hat = np.argmax(np.dot(SVM_wights, x))
             PA_y_hat = np.argmax(np.dot(PA_wights, x))
+
             y = int(y)
 
             count += 1
 
+            #update perceptron
             if preceptron_y_hat != y:
                 failCountPreceptron += 1
                 preceptron_y_hat = int(preceptron_y_hat)
                 preceptron_wights[y, :] = preceptron_wights[y, :] + np.dot(hiperEta, x)
                 preceptron_wights[preceptron_y_hat, :] = preceptron_wights[preceptron_y_hat, :] - np.dot(hiperEta, x)
 
+            #update PA
             if PA_y_hat != y:
                 failCountPA += 1
                 PA_wights[y, :] = PA_wights[y, :] + (PA_loss(x, y, PA_y_hat, PA_wights) / (2 * pow((np.linalg.norm(x)), 2))) * x
                 PA_wights[PA_y_hat, :] = PA_wights[PA_y_hat, :] - (PA_loss(x, y, PA_y_hat, PA_wights) / np.linalg.norm(x)) * x
 
+            #update SVM
             if SVM_y_hat != y:
                 failCountSVM += 1
                 third_y = 0
                 y = int(y)
                 SVM_y_hat = int(SVM_y_hat)
+
                 if (y == 0) & (SVM_y_hat == 1):
                     third_y = 2
                 elif (y == 1) & (SVM_y_hat == 0):
@@ -127,6 +136,7 @@ def algotithem(pathX, pathY, pathTest):
       #  print("SVM: ", (failCountSVM / count) * 100)
      #   print("PA: ", (failCountPA / count) * 100)
 
+    # now workk on the test data after we train
     test = open(pathTest, "r")
 
     reader = csv.reader(test, delimiter=',')
@@ -150,10 +160,8 @@ def algotithem(pathX, pathY, pathTest):
         SVM_y_hat = np.argmax(np.dot(SVM_wights, line))
         PA_y_hat = np.argmax(np.dot(PA_wights, line))
 
-        print("preceptron: ", preceptron_y_hat,",", "svm: ", SVM_y_hat,",", "pa: ", PA_y_hat)
+        print("perceptron: ", preceptron_y_hat, ", ", "svm: ", SVM_y_hat,", ", "pa: ", PA_y_hat, sep='')
 
 
-
-#algotithem("/home/reut/PycharmProjects/untitled/train_x2.txt", "/home/reut/PycharmProjects/untitled/train_y2.txt", "/home/reut/PycharmProjects/untitled/test.txt")
-algotithem(sys.argv[1], sys.argv[2], sys.argv[3])
+algorithm(sys.argv[1], sys.argv[2], sys.argv[3])
 
