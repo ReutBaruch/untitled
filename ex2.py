@@ -1,6 +1,7 @@
 import csv
-
+import random
 import numpy as np
+import sys
 
 
 def eta(r, y, y_hat):
@@ -10,6 +11,8 @@ def eta(r, y, y_hat):
         return -1
     return 0
 
+def PA_loss(x, y, y_hat, w):
+    return max(0, 1 - np.dot(w[y, :], x) + np.dot(w[y_hat, :], x))
 
 def eta2(y, x, wights):
     calculate = np.dot(wights, np.dot(y, x))
@@ -32,60 +35,125 @@ def _init_weights():
     return weights
 
 
-def preceptron(pathX, pathY):
-    failCount = 0
-    count = 0
+def algotithem(pathX, pathY, pathTest):
 
     #open files
     train_x = open(pathX, "r")
     train_y = open(pathY, "r")
 
     reader = csv.reader(train_x, delimiter=',')
-    data = list(reader)
+    train_x = list(reader)
 
-    #init wights to 0
-    wights = _init_weights()
+    train_y = list(train_y)
 
+    #init preceptron_wights to 0
+    preceptron_wights = _init_weights()
+    SVM_wights = _init_weights()
+    PA_wights = _init_weights()
 
-    for line_x, line_y in zip(data, train_y):
+    hiperEta = 2
 
-        y = float(line_y)
-       # x = line_x.split(",")
-        x = np.asarray(line_x)
+    both_Train = list(zip(train_x, train_y))
 
-        if x[0] == 'M':
-            x[0] = 0.0
-        elif x[0] == 'F':
-            x[0] = 1.0
-        elif x[0] == 'I':
-            x[0] = 2.0
+    random.shuffle(both_Train)
 
-        x = x.astype(np.float)
-        #normalizing
-        x = x / np.linalg.norm(x)
+    train_x, train_y = zip(*both_Train)
 
-        y_hat = np.argmax(np.dot(wights, x))
-        count += 1
+    for iteration in range(20):
+        failCountPreceptron = 0
+        failCountSVM = 0
+        failCountPA = 0
+        count = 0
 
-        #print(y)
-        print(y_hat)
-        if y_hat != y:
-            failCount += 1
+        hiperEta = hiperEta / 10
+
+        for line_x, line_y in zip(train_x, train_y):
+
+            y = float(line_y)
+            x = np.asarray(line_x)
+
+            if x[0] == 'M':
+                x[0] = 0.2
+            elif x[0] == 'F':
+                x[0] = 0.4
+            elif x[0] == 'I':
+                x[0] = 0.6
+
+            x = x.astype(np.float)
+            #normalizing
+            x = x / np.linalg.norm(x)
+
+            preceptron_y_hat = np.argmax(np.dot(preceptron_wights, x))
+            SVM_y_hat = np.argmax(np.dot(SVM_wights, x))
+            PA_y_hat = np.argmax(np.dot(PA_wights, x))
             y = int(y)
-            y_hat = int(y_hat)
-            wights[y, :] = wights[y, :] + np.dot(eta(y,y,y_hat), x)
-            wights[y_hat, :] = wights[y_hat, :] + np.dot(eta(y_hat, y, y_hat), x)
 
-       # print("in for: ", (failCount/count)*100)
+            count += 1
 
-    print((failCount / count) * 100)
+            if preceptron_y_hat != y:
+                failCountPreceptron += 1
+                preceptron_y_hat = int(preceptron_y_hat)
+                preceptron_wights[y, :] = preceptron_wights[y, :] + np.dot(hiperEta, x)
+                preceptron_wights[preceptron_y_hat, :] = preceptron_wights[preceptron_y_hat, :] - np.dot(hiperEta, x)
 
-    #print(wights)
+            if PA_y_hat != y:
+                failCountPA += 1
+                PA_wights[y, :] = PA_wights[y, :] + (PA_loss(x, y, PA_y_hat, PA_wights) / (2 * pow((np.linalg.norm(x)), 2))) * x
+                PA_wights[PA_y_hat, :] = PA_wights[PA_y_hat, :] - (PA_loss(x, y, PA_y_hat, PA_wights) / np.linalg.norm(x)) * x
+
+            if SVM_y_hat != y:
+                failCountSVM += 1
+                third_y = 0
+                y = int(y)
+                SVM_y_hat = int(SVM_y_hat)
+                if (y == 0) & (SVM_y_hat == 1):
+                    third_y = 2
+                elif (y == 1) & (SVM_y_hat == 0):
+                    third_y = 2
+                elif (y == 1) & (SVM_y_hat == 2):
+                    third_y = 0
+                elif (y == 2) & (SVM_y_hat == 1):
+                    third_y = 0
+                elif (y == 0) & (SVM_y_hat == 2):
+                    third_y = 1
+                elif (y == 2) & (SVM_y_hat == 0):
+                    third_y = 1
+
+                SVM_wights[y, :] = (1 - 0.075 * hiperEta) * SVM_wights[y, :] + hiperEta * x
+                SVM_wights[SVM_y_hat, :] = (1 - 0.075 * hiperEta) * SVM_wights[SVM_y_hat, :] - hiperEta * x
+                SVM_wights[third_y, :] = (1 - 0.075 * hiperEta) * SVM_wights[third_y, :]
+
+       # print("Preceptron: ", (failCountPreceptron / count) * 100)
+      #  print("SVM: ", (failCountSVM / count) * 100)
+     #   print("PA: ", (failCountPA / count) * 100)
+
+    test = open(pathTest, "r")
+
+    reader = csv.reader(test, delimiter=',')
+    test = list(reader)
+
+    for line in test:
+        line = np.asarray(line)
+
+        if line[0] == 'M':
+            line[0] = 0.2
+        elif line[0] == 'F':
+            line[0] = 0.4
+        elif line[0] == 'I':
+            line[0] = 0.6
+
+        line = line.astype(np.float)
+        # normalizing
+        line = line / np.linalg.norm(line)
+
+        preceptron_y_hat = np.argmax(np.dot(preceptron_wights, line))
+        SVM_y_hat = np.argmax(np.dot(SVM_wights, line))
+        PA_y_hat = np.argmax(np.dot(PA_wights, line))
+
+        print("preceptron: ", preceptron_y_hat,",", "svm: ", SVM_y_hat,",", "pa: ", PA_y_hat)
 
 
 
-
-
-preceptron("/home/reut/PycharmProjects/untitled/train_x.txt", "/home/reut/PycharmProjects/untitled/train_y.txt")
-
+#algotithem("/home/reut/PycharmProjects/untitled/train_x2.txt", "/home/reut/PycharmProjects/untitled/train_y2.txt", "/home/reut/PycharmProjects/untitled/test.txt")
+algotithem(sys.argv[1], sys.argv[2], sys.argv[3])
 
